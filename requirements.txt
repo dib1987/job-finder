@@ -1,0 +1,26 @@
+# Job Finder — Python dependencies
+# Install: pip install -r requirements.txt
+# After install: playwright install chromium
+
+# Core
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Resume parsing
+pymupdf>=1.23.0          # fitz — best text extraction order for PDFs
+
+# Browser automation
+playwright>=1.40.0
+playwright-stealth>=1.0.6
+
+# LLM
+anthropic>=0.40.0        # Primary LLM provider
+
+# CLI display
+rich>=13.0.0
+
+# Scheduling (cross-platform fallback — Windows uses schtasks directly)
+schedule>=1.2.0
+
+# Agentic base (local — shared framework)
+# Installed via: pip install -e "../agentic_base" OR sys.path.insert in agent.py

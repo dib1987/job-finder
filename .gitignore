@@ -1,0 +1,23 @@
+# Secrets — NEVER commit these
+.env
+config/linkedin_session.json
+config/resume.pdf
+
+# Runtime state
+.tmp/
+logs/
+data/applications.db
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db

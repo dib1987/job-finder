@@ -1,0 +1,59 @@
+{
+  "_comment": "Edit this file with your job search preferences. All fields are used by the scoring engine.",
+
+  "personal": {
+    "name": "Dibyendu Mondal",
+    "email": "dibyendumondal87@gmail.com",
+    "phone": "+1 704 322 5397",
+    "linkedin_url": "https://linkedin.com/in/your-profile",
+    "total_years_experience": 12,
+    "us_years_experience": 4,
+    "work_authorization": "H1B (I-140 Approved)",
+    "requires_sponsorship": true,
+    "location_city": "Charlotte, NC"
+  },
+
+  "job_search": {
+    "target_titles": [
+      "QA Engineer",
+      "QA Automation Engineer",
+      "QA Automation"
+    ],
+    "target_industries": [
+      "SaaS",
+      "fintech",
+      "AI/ML",
+      "technology"
+    ],
+    "excluded_companies": [],
+    "excluded_keywords": [],
+    "required_keywords": []
+  },
+
+  "location": {
+    "preference": "hybrid",
+    "willing_to_relocate": false,
+    "target_locations": ["United States"],
+    "excluded_locations": []
+  },
+
+  "compensation": {
+    "minimum_usd_annual": 123000,
+    "currency": "USD"
+  },
+
+  "employment": {
+    "types": ["full_time"],
+    "seniority_levels": ["mid", "senior", "staff"]
+  },
+
+  "scoring": {
+    "threshold": 60,
+    "auto_apply_above": 90,
+    "max_jobs_per_run": 30
+  },
+
+  "resume_path": "config/resume.pdf",
+
+  "_saas_migration_note": "Every field in this file maps directly to a DB column when converting to SaaS. Do not add nested arrays more than 2 levels deep."
+}
