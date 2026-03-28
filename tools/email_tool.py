@@ -331,7 +331,7 @@ def _build_research_html(highlights: list) -> str:
 def _build_alerts_html(pending: int, manual: int, failed: int) -> str:
     html = ""
     if pending > 0:
-        html += f'<div class="alert alert-warn"><strong>{pending} jobs awaiting your approval.</strong> Run: <code>python agent.py --phase approve</code></div>'
+        html += f'<div class="alert alert-warn"><strong>{pending} jobs awaiting your approval.</strong></div>'
     if manual > 0:
         html += f'<div class="alert alert-info"><strong>{manual} jobs require manual application</strong> (no Easy Apply). Check your tracker.</div>'
     if failed > 0:
