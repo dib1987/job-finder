@@ -46,14 +46,21 @@ class JobAgent(BaseAgent):
 
     AGENT_NAME = "job_finder"
     PHASES = ["parse", "scrape", "score", "research", "approve", "apply", "notify"]
+    DAILY_PHASES = ["parse", "scrape", "score", "research", "notify"]
 
     def __init__(self):
         super().__init__(base_dir=str(Path(__file__).parent))
         self.preferences = self._load_preferences()
         self._tracker = None
+        self._daily_mode = False
         deleted = self.state.cleanup_old_files(keep_days=3)
         if deleted:
             self.logger.info(json.dumps({"event": "tmp_cleanup", "files_deleted": deleted}))
+
+    def _resolve_phases(self, args):
+        if getattr(args, "daily", False):
+            return self.DAILY_PHASES
+        return super()._resolve_phases(args)
 
     # ── Phase 1: Parse Resume ─────────────────────────────────────────────────
 
@@ -352,7 +359,14 @@ class JobAgent(BaseAgent):
 
     # ── Special Flags ─────────────────────────────────────────────────────────
 
+    DAILY_PHASES = ["parse", "scrape", "score", "research", "notify"]
+
     def _add_custom_args(self, parser) -> None:
+        parser.add_argument(
+            "--daily",
+            action="store_true",
+            help="Run non-interactive phases only (parse→scrape→score→research→notify). Used by scheduler.",
+        )
         parser.add_argument(
             "--setup-linkedin",
             action="store_true",
@@ -371,6 +385,10 @@ class JobAgent(BaseAgent):
 
     def _handle_special_flags(self, args) -> None:
         super()._handle_special_flags(args)
+
+        if getattr(args, "daily", False):
+            # Override phase resolution — run only non-interactive phases
+            self._daily_mode = True
 
         if getattr(args, "setup_linkedin", False):
             from tools.job_source.linkedin_scraper import LinkedInScraper
