@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(PYTHONUTF8=1 python -c \":*)",
-      "Bash(PYTHONUTF8=1 python agent.py --phase research)"
+      "Bash(PYTHONUTF8=1 python agent.py --phase research)",
+      "Bash(PYTHONUTF8=1 python agent.py --history)",
+      "Bash(python scheduler.py --install --time 08:00)"
     ]
   }
 }

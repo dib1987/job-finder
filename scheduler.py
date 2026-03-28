@@ -24,22 +24,21 @@ TASK_NAME = "JobFinderAgent"
 
 def install(run_time: str = "08:00") -> None:
     """Register a daily Windows Task Scheduler entry."""
-    agent_script = Path(__file__).parent / "agent.py"
-    python_exe   = sys.executable
+    batch_file = Path(__file__).parent / "run_daily.bat"
 
-    if not agent_script.exists():
-        print(f"Error: agent.py not found at {agent_script}")
+    if not batch_file.exists():
+        print(f"Error: run_daily.bat not found at {batch_file}")
         sys.exit(1)
 
     # Build the schtasks command
     # /SC DAILY — run every day
     # /ST HH:MM — start time
-    # /TR — task to run
+    # /TR — task to run (batch file handles the full pipeline)
     # /F — force (overwrite if exists)
     cmd = [
         "schtasks", "/Create",
         "/TN", TASK_NAME,
-        "/TR", f'"{python_exe}" "{agent_script}" --dry-run=false',
+        "/TR", f'"{batch_file}"',
         "/SC", "DAILY",
         "/ST", run_time,
         "/F",  # Force overwrite
@@ -47,9 +46,8 @@ def install(run_time: str = "08:00") -> None:
     ]
 
     print(f"Registering task: {TASK_NAME}")
-    print(f"  Script: {agent_script}")
+    print(f"  Script: {batch_file}")
     print(f"  Time:   {run_time} daily")
-    print(f"  Python: {python_exe}")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
