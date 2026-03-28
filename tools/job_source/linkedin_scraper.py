@@ -25,6 +25,12 @@ class LinkedInScraper(JobSource):
 
     def __init__(self, session_path: str = "config/linkedin_session.json"):
         self.session_path = Path(session_path)
+        self.user_agent = os.getenv(
+            "LINKEDIN_USER_AGENT",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/133.0.0.0 Safari/537.36",
+        )
         self._check_session_age()
 
     def fetch_jobs(
@@ -43,11 +49,7 @@ class LinkedInScraper(JobSource):
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
                 storage_state=str(self.session_path) if self.session_path.exists() else None,
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                ),
+                user_agent=self.user_agent,
                 viewport={"width": 1280, "height": 800},
             )
             page = context.new_page()
@@ -78,11 +80,24 @@ class LinkedInScraper(JobSource):
                 job_ids = self._collect_job_ids(page, limit)
                 logger.info(f"Found {len(job_ids)} job IDs. Fetching details...")
 
+                session_blocked = False
                 for i, job_id in enumerate(job_ids):
+                    if session_blocked:
+                        break
                     logger.info(f"  [{i+1}/{len(job_ids)}] Fetching job {job_id}...")
-                    job = self._fetch_job_detail(page, job_id)
+                    job = self._fetch_job_detail_with_retry(page, job_id)
                     if job:
                         jobs.append(job)
+                    else:
+                        # Check if a mid-scrape block occurred
+                        current_url = page.url
+                        if any(x in current_url for x in ("authwall", "checkpoint", "login")):
+                            logger.warning(
+                                f"Session blocked at job {job_id}. "
+                                f"Stopping early with {len(jobs)} jobs collected. "
+                                f"Run: python agent.py --setup-linkedin"
+                            )
+                            session_blocked = True
                     self._random_delay(2, 4)
 
             except Exception as e:
@@ -194,6 +209,18 @@ class LinkedInScraper(JobSource):
                     return m.group(1)
         except Exception:
             pass
+        return None
+
+    def _fetch_job_detail_with_retry(self, page, job_id: str, max_retries: int = 2) -> Optional[JobListing]:
+        """Retry wrapper around _fetch_job_detail with exponential backoff."""
+        for attempt in range(max_retries + 1):
+            result = self._fetch_job_detail(page, job_id)
+            if result is not None:
+                return result
+            if attempt < max_retries:
+                wait = (2 ** attempt) * 3 + random.uniform(0, 2)  # 3s, 8s
+                logger.info(f"  Retry {attempt + 1}/{max_retries} for job {job_id} in {wait:.1f}s")
+                time.sleep(wait)
         return None
 
     def _fetch_job_detail(self, page, job_id: str) -> Optional[JobListing]:

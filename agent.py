@@ -45,12 +45,15 @@ from agentic_base.utils.state_manager import StateManager
 class JobAgent(BaseAgent):
 
     AGENT_NAME = "job_finder"
-    PHASES = ["parse", "scrape", "score", "approve", "apply", "notify"]
+    PHASES = ["parse", "scrape", "score", "research", "approve", "apply", "notify"]
 
     def __init__(self):
         super().__init__(base_dir=str(Path(__file__).parent))
         self.preferences = self._load_preferences()
         self._tracker = None
+        deleted = self.state.cleanup_old_files(keep_days=3)
+        if deleted:
+            self.logger.info(json.dumps({"event": "tmp_cleanup", "files_deleted": deleted}))
 
     # ── Phase 1: Parse Resume ─────────────────────────────────────────────────
 
@@ -197,7 +200,40 @@ class JobAgent(BaseAgent):
             for job in above[:5]:
                 print(f"  [{job['score']}/100] {job['title']} @ {job['company']}")
 
-    # ── Phase 4: Approve ──────────────────────────────────────────────────────
+    # ── Phase 4: Research Companies ───────────────────────────────────────────
+
+    def phase_research(self) -> None:
+        from tools.research_tool import research_jobs_batch
+
+        jobs_above = self.state.load("jobs_above_threshold")
+        if not jobs_above:
+            print("No scored jobs found. Run: python agent.py --phase score first.")
+            import sys
+            sys.exit(1)
+
+        print(f"\nResearching {len(jobs_above)} companies for H1B sponsorship signals...")
+
+        results = research_jobs_batch(jobs_above, self.llm)
+        self.state.save("research_results", results)
+
+        # Attach research data to each job in jobs_above_threshold so the
+        # approval gate can display it without loading a separate state file.
+        research_map = {r["job_id"]: r for r in results}
+        for job in jobs_above:
+            job["research"] = research_map.get(job.get("job_id", ""), {})
+        self.state.save("jobs_above_threshold", jobs_above)
+
+        avoid_count   = sum(1 for r in results if r.get("research_verdict") == "avoid")
+        caution_count = sum(1 for r in results if r.get("research_verdict") == "caution")
+
+        self.logger.info(json.dumps({
+            "event":               "research_complete",
+            "companies_researched": len(results),
+            "avoid_signals":        avoid_count,
+            "caution_signals":      caution_count,
+        }))
+
+        print(f"Research complete: {avoid_count} avoid signals, {caution_count} caution signals")
 
     def phase_approve(self) -> None:
         from tools.approval_tool import present_for_approval
@@ -258,13 +294,14 @@ class JobAgent(BaseAgent):
     # ── Phase 6: Notify ───────────────────────────────────────────────────────
 
     def phase_notify(self) -> None:
-        from tools.notifier_tool import send_report
+        from tools.email_tool import send_job_report
 
         # Build summary from all phase states
         scraped        = self.state.load("scraped_jobs") or []
         jobs_above     = self.state.load("jobs_above_threshold") or []
         approved       = self.state.load("approved_jobs") or []
         apply_results  = self.state.load("apply_results") or {}
+        research       = self.state.load("research_results") or []
 
         top_matches = [
             {
@@ -274,6 +311,16 @@ class JobAgent(BaseAgent):
                 "url":     j.get("url", ""),
             }
             for j in (jobs_above or [])[:5]
+        ]
+
+        research_highlights = [
+            {
+                "company":            r.get("company", ""),
+                "sponsorship_signal": r.get("sponsorship_signal", "unknown"),
+                "verdict":            r.get("research_verdict", "unknown"),
+                "verdict_reason":     r.get("verdict_reason", ""),
+            }
+            for r in research[:5]
         ]
 
         run_summary = {
@@ -286,6 +333,7 @@ class JobAgent(BaseAgent):
             "manual_apply_count":        len(apply_results.get("skipped_manual", [])),
             "pending_approval_count":    max(0, len(jobs_above) - len(approved)),
             "top_matches":               top_matches,
+            "research_highlights":       research_highlights,
         }
 
         self.state.save("run_summary", run_summary)
@@ -297,8 +345,10 @@ class JobAgent(BaseAgent):
         with open(report_file, "w") as f:
             json.dump(run_summary, f, indent=2)
 
-        send_report(run_summary)
-        self.logger.info(json.dumps({"event": "notify_complete", **run_summary}))
+        send_job_report(run_summary)
+        self.logger.info(json.dumps({"event": "notify_complete", **{
+            k: v for k, v in run_summary.items() if k != "research_highlights"
+        }}))
 
     # ── Special Flags ─────────────────────────────────────────────────────────
 

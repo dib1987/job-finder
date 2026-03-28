@@ -145,17 +145,7 @@ def _display_job_rich(console, job: dict, position: int, total: int) -> None:
     score_color = "bright_green" if score >= 80 else ("yellow" if score >= 65 else "red")
     action_color = "green" if job.get("recommended_action") == "apply" else "yellow"
 
-    # Score breakdown table
     sub = job.get("sub_scores", {})
-    table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
-    table.add_column("Category", style="dim", width=20)
-    table.add_column("Score", justify="right", width=12)
-    table.add_row("Skills Match",    f"{sub.get('skills', '?')}/30")
-    table.add_row("Experience Level",f"{sub.get('experience', '?')}/25")
-    table.add_row("Location/Remote", f"{sub.get('location', '?')}/20")
-    table.add_row("Compensation",    f"{sub.get('compensation', '?')}/15")
-    table.add_row("Company/Industry",f"{sub.get('company', '?')}/10")
-
     matched = ", ".join(job.get("matched_skills", [])[:6]) or "—"
     missing = ", ".join(job.get("missing_skills", [])[:4]) or "None"
     easy_apply_badge = "[green]YES[/green]" if job.get("easy_apply") else "[red]NO (manual)[/red]"
@@ -168,15 +158,34 @@ def _display_job_rich(console, job: dict, position: int, total: int) -> None:
         f"Salary: [dim]{job.get('salary_range', 'Not disclosed')}[/dim]\n\n"
     )
 
-    panel_content = content
+    # Sponsorship warning banner
+    sponsorship_warn = ""
+    if job.get("sponsorship_flag"):
+        sponsorship_warn = "[bold red]⚠ SPONSORSHIP BLOCKED — job description explicitly excludes H1B/visa sponsorship[/bold red]\n\n"
+
+    # Research section (if research phase ran)
+    research_section = ""
+    research = job.get("research", {})
+    if research:
+        verdict = research.get("research_verdict", "unknown")
+        verdict_color = {"proceed": "green", "caution": "yellow", "avoid": "red"}.get(verdict, "dim")
+        sponsor_sig = research.get("sponsorship_signal", "unknown")
+        sig_color = "green" if sponsor_sig == "likely_yes" else ("red" if sponsor_sig == "likely_no" else "dim")
+        research_section = (
+            f"[bold]Company Research:[/bold]\n"
+            f"  Sponsorship: [{sig_color}]{sponsor_sig}[/{sig_color}]  "
+            f"Verdict: [{verdict_color}]{verdict.upper()}[/{verdict_color}]\n"
+            f"  [italic dim]{research.get('verdict_reason', '')}[/italic dim]\n\n"
+        )
+
+    panel_content = sponsorship_warn + content + research_section
     panel_content += f"[bold]Score Breakdown:[/bold]\n"
 
     sub_lines = [
-        f"  Skills Match:      {sub.get('skills', '?')}/30",
-        f"  Experience Level:  {sub.get('experience', '?')}/25",
-        f"  Location/Remote:   {sub.get('location', '?')}/20",
-        f"  Compensation:      {sub.get('compensation', '?')}/15",
-        f"  Company/Industry:  {sub.get('company', '?')}/10",
+        f"  Core Match (skills+exp): {sub.get('core_match', '?')}/40",
+        f"  Requirements Met:        {sub.get('requirements_met', '?')}/30",
+        f"  Nice-to-Haves:           {sub.get('nice_to_haves', '?')}/20",
+        f"  No Deal-Breakers:        {sub.get('no_deal_breakers', '?')}/10",
     ]
     panel_content += "\n".join(sub_lines) + "\n\n"
     panel_content += f"[green]Matched skills:[/green] {matched}\n"
@@ -197,17 +206,23 @@ def _display_job_plain(job: dict, position: int, total: int) -> None:
     print(f"\n{'='*65}")
     print(f"Job {position} of {total}  |  Score: {score}/100  [{job.get('recommended_action','review').upper()}]")
     print(f"{'='*65}")
+    if job.get("sponsorship_flag"):
+        print("*** WARNING: JOB BLOCKS H1B/VISA SPONSORSHIP ***")
     print(f"Title:     {job['title']}")
     print(f"Company:   {job['company']}")
     print(f"Location:  {job['location']}")
     print(f"Easy Apply:{' YES' if job.get('easy_apply') else ' NO (manual apply)'}")
     print(f"Salary:    {job.get('salary_range', 'Not disclosed')}")
+    research = job.get("research", {})
+    if research:
+        print(f"Research:  Sponsorship={research.get('sponsorship_signal','?')}  "
+              f"Verdict={research.get('research_verdict','?').upper()}")
+        print(f"           {research.get('verdict_reason', '')}")
     print()
-    print(f"  Skills Match:      {sub.get('skills', '?')}/30")
-    print(f"  Experience Level:  {sub.get('experience', '?')}/25")
-    print(f"  Location/Remote:   {sub.get('location', '?')}/20")
-    print(f"  Compensation:      {sub.get('compensation', '?')}/15")
-    print(f"  Company/Industry:  {sub.get('company', '?')}/10")
+    print(f"  Core Match (skills+exp): {sub.get('core_match', '?')}/40")
+    print(f"  Requirements Met:        {sub.get('requirements_met', '?')}/30")
+    print(f"  Nice-to-Haves:           {sub.get('nice_to_haves', '?')}/20")
+    print(f"  No Deal-Breakers:        {sub.get('no_deal_breakers', '?')}/10")
     print()
     print(f"Matched: {', '.join(job.get('matched_skills', [])[:6]) or 'None'}")
     print(f"Missing: {', '.join(job.get('missing_skills', [])[:4]) or 'None'}")
